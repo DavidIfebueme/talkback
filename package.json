@@ -1,0 +1,26 @@
+{
+  "name": "talkback",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reactive laptop personality app",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist coverage",
+    "dev": "npm run build && electron .",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "rebuild:native": "electron-rebuild -f -w uiohook-napi"
+  },
+  "dependencies": {
+    "electron": "^41.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "electron-builder": "^25.1.8",
+    "electron-rebuild": "^3.2.9",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}
