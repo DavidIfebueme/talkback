@@ -1,5 +1,15 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
+import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+
+import { AudioCache } from './output-engine/audio-cache'
+import { OutputEngine } from './output-engine/output-engine'
+import { AudioPlaybackManager } from './output-engine/playback-manager'
+import { TextPopupChannel } from './output-engine/popup-channel'
+import { TtsGenerationWorker } from './output-engine/tts-worker'
+import type { AudioPlaybackTask, TtsGenerationRequest, TtsProvider } from './output-engine/types'
+
+let outputEngine: OutputEngine | undefined
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -21,11 +31,57 @@ const createWindow = (): void => {
     event.preventDefault()
   })
 
-  mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  mainWindow.loadFile(join(app.getAppPath(), 'src/renderer/index.html'))
+
+  const popupChannel = new TextPopupChannel((message) => {
+    mainWindow.webContents.send('talkback:popup', message)
+  })
+
+  const playbackManager = new AudioPlaybackManager(async (task: AudioPlaybackTask) => {
+    mainWindow.webContents.send('talkback:audio-play', task.audioFilePath)
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve()
+      }, 1200)
+
+      ipcMain.once('talkback:audio-ended', () => {
+        clearTimeout(timeout)
+        resolve()
+      })
+    })
+  })
+
+  const cacheDir = join(app.getPath('userData'), 'audio-cache')
+  const audioCache = new AudioCache(cacheDir)
+
+  const provider: TtsProvider = {
+    async synthesize(request: TtsGenerationRequest): Promise<Buffer> {
+      await mkdir(cacheDir, { recursive: true })
+      return Buffer.from(request.text, 'utf8')
+    }
+  }
+
+  const ttsWorker = new TtsGenerationWorker(audioCache, provider)
+
+  outputEngine = new OutputEngine(popupChannel, playbackManager, ttsWorker)
 }
 
 app.whenReady().then(() => {
   createWindow()
+
+  ipcMain.handle('talkback:demo-output', async () => {
+    if (!outputEngine) {
+      return { textDisplayed: false, audioPlayed: false, fallbackReason: 'VOICE_GENERATION_FAILED' }
+    }
+
+    return outputEngine.emit({
+      eventType: 'knock',
+      text: 'Easy. I bruise emotionally.',
+      useVoice: true,
+      voiceId: 'default-voice',
+      modelId: 'default-model'
+    })
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
