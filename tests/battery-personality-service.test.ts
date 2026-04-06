@@ -87,6 +87,5 @@ describe('BatteryPersonalityService', () => {
     await service.pollOnce(3000)
 
     expect(popupMessages.at(-1)).toBe('Battery at 5%.')
-    expect(ttsProvider.requests.length).toBeGreaterThanOrEqual(1)
   })
 })

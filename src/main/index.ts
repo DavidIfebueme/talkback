@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, powerMonitor } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { SystemInformationBatteryProvider } from './battery-detection/provider'
 import { BatteryPersonalityService } from './battery-detection/service'
+import { IdlePersonalityService } from './idle-detection/service'
 import { resolveKeyboardSourceMode } from './keyboard-detection/platform'
 import { UiohookKeyboardSource, FocusedWindowKeyboardSource } from './keyboard-detection/sources'
 import { KeyboardMoodTriggerBridge } from './keyboard-detection/trigger-bridge'
@@ -14,11 +15,13 @@ import { TextPopupChannel } from './output-engine/popup-channel'
 import { TtsGenerationWorker } from './output-engine/tts-worker'
 import type { AudioPlaybackTask, TtsGenerationRequest, TtsProvider } from './output-engine/types'
 import { PersonalityEngine } from './personality-engine/engine'
+import { StartupGreetingService } from './startup-personality/service'
 import { TriggerEngine } from './trigger-engine/engine'
 
 let outputEngine: OutputEngine | undefined
 let stopKeyboardSource: (() => Promise<void>) | undefined
 let stopBatteryService: (() => void) | undefined
+let stopIdleService: (() => void) | undefined
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -76,6 +79,7 @@ const createWindow = (): void => {
 
   const triggerEngine = new TriggerEngine()
   const personalityEngine = new PersonalityEngine()
+  const startupGreeting = new StartupGreetingService(outputEngine)
   const keyboardBridge = new KeyboardMoodTriggerBridge(triggerEngine)
   const keyboardMode = resolveKeyboardSourceMode(process.platform, process.env.XDG_SESSION_TYPE)
   const batteryProvider = new SystemInformationBatteryProvider()
@@ -99,6 +103,27 @@ const createWindow = (): void => {
   stopBatteryService = () => {
     batteryService.stop()
   }
+
+  const idleService = new IdlePersonalityService(
+    () => powerMonitor.getSystemIdleTime(),
+    triggerEngine,
+    personalityEngine,
+    outputEngine,
+    {
+      idleThresholdSec: 90,
+      pollIntervalMs: 5000,
+      cooldownMs: 60000,
+      voiceId: 'default-voice',
+      modelId: 'default-model'
+    }
+  )
+
+  idleService.start()
+  stopIdleService = () => {
+    idleService.stop()
+  }
+
+  void startupGreeting.runOnce()
 
   const primarySource =
     keyboardMode === 'GLOBAL_HOOK'
@@ -168,6 +193,10 @@ app.on('window-all-closed', () => {
 
   if (stopBatteryService) {
     stopBatteryService()
+  }
+
+  if (stopIdleService) {
+    stopIdleService()
   }
 
   if (process.platform !== 'darwin') {
