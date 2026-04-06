@@ -2,14 +2,19 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { resolveKeyboardSourceMode } from './keyboard-detection/platform'
+import { UiohookKeyboardSource, FocusedWindowKeyboardSource } from './keyboard-detection/sources'
+import { KeyboardMoodTriggerBridge } from './keyboard-detection/trigger-bridge'
 import { AudioCache } from './output-engine/audio-cache'
 import { OutputEngine } from './output-engine/output-engine'
 import { AudioPlaybackManager } from './output-engine/playback-manager'
 import { TextPopupChannel } from './output-engine/popup-channel'
 import { TtsGenerationWorker } from './output-engine/tts-worker'
 import type { AudioPlaybackTask, TtsGenerationRequest, TtsProvider } from './output-engine/types'
+import { TriggerEngine } from './trigger-engine/engine'
 
 let outputEngine: OutputEngine | undefined
+let stopKeyboardSource: (() => Promise<void>) | undefined
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -64,6 +69,46 @@ const createWindow = (): void => {
   const ttsWorker = new TtsGenerationWorker(audioCache, provider)
 
   outputEngine = new OutputEngine(popupChannel, playbackManager, ttsWorker)
+
+  const triggerEngine = new TriggerEngine()
+  const keyboardBridge = new KeyboardMoodTriggerBridge(triggerEngine)
+  const keyboardMode = resolveKeyboardSourceMode(process.platform, process.env.XDG_SESSION_TYPE)
+
+  const primarySource =
+    keyboardMode === 'GLOBAL_HOOK'
+      ? new UiohookKeyboardSource()
+      : new FocusedWindowKeyboardSource(mainWindow)
+
+  const fallbackSource =
+    keyboardMode === 'GLOBAL_HOOK'
+      ? new FocusedWindowKeyboardSource(mainWindow)
+      : new UiohookKeyboardSource()
+
+  void (async () => {
+    const started = await primarySource.start((timestamp) => {
+      keyboardBridge.getDetector().ingestKeydown(timestamp)
+      const accepted = triggerEngine.dequeueAccepted()
+
+      if (accepted?.eventType === 'keyboard_state_change') {
+        const payload = accepted.payload as { state: string }
+        popupChannel.show(`Keyboard mood: ${payload.state}`)
+      }
+    })
+
+    if (!started) {
+      await fallbackSource.start((timestamp) => {
+        keyboardBridge.getDetector().ingestKeydown(timestamp)
+      })
+      stopKeyboardSource = async () => {
+        await fallbackSource.stop()
+      }
+      return
+    }
+
+    stopKeyboardSource = async () => {
+      await primarySource.stop()
+    }
+  })()
 }
 
 app.whenReady().then(() => {
@@ -91,6 +136,10 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  if (stopKeyboardSource) {
+    void stopKeyboardSource()
+  }
+
   if (process.platform !== 'darwin') {
     app.quit()
   }

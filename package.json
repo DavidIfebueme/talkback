@@ -14,7 +14,8 @@
     "rebuild:native": "electron-rebuild -f -w uiohook-napi"
   },
   "dependencies": {
-    "electron": "^41.1.1"
+    "electron": "^41.1.1",
+    "uiohook-napi": "^1.5.5"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
