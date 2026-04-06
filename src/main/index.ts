@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { SystemInformationBatteryProvider } from './battery-detection/provider'
+import { BatteryPersonalityService } from './battery-detection/service'
 import { resolveKeyboardSourceMode } from './keyboard-detection/platform'
 import { UiohookKeyboardSource, FocusedWindowKeyboardSource } from './keyboard-detection/sources'
 import { KeyboardMoodTriggerBridge } from './keyboard-detection/trigger-bridge'
@@ -11,10 +13,12 @@ import { AudioPlaybackManager } from './output-engine/playback-manager'
 import { TextPopupChannel } from './output-engine/popup-channel'
 import { TtsGenerationWorker } from './output-engine/tts-worker'
 import type { AudioPlaybackTask, TtsGenerationRequest, TtsProvider } from './output-engine/types'
+import { PersonalityEngine } from './personality-engine/engine'
 import { TriggerEngine } from './trigger-engine/engine'
 
 let outputEngine: OutputEngine | undefined
 let stopKeyboardSource: (() => Promise<void>) | undefined
+let stopBatteryService: (() => void) | undefined
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -71,8 +75,30 @@ const createWindow = (): void => {
   outputEngine = new OutputEngine(popupChannel, playbackManager, ttsWorker)
 
   const triggerEngine = new TriggerEngine()
+  const personalityEngine = new PersonalityEngine()
   const keyboardBridge = new KeyboardMoodTriggerBridge(triggerEngine)
   const keyboardMode = resolveKeyboardSourceMode(process.platform, process.env.XDG_SESSION_TYPE)
+  const batteryProvider = new SystemInformationBatteryProvider()
+  const batteryService = new BatteryPersonalityService(
+    batteryProvider,
+    triggerEngine,
+    personalityEngine,
+    outputEngine,
+    ttsWorker,
+    {
+      thresholds: [50, 20, 10, 5],
+      pollIntervalMs: 30000,
+      pregenSourceThreshold: 10,
+      pregenTargetThreshold: 5,
+      voiceId: 'default-voice',
+      modelId: 'default-model'
+    }
+  )
+
+  batteryService.start()
+  stopBatteryService = () => {
+    batteryService.stop()
+  }
 
   const primarySource =
     keyboardMode === 'GLOBAL_HOOK'
@@ -138,6 +164,10 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (stopKeyboardSource) {
     void stopKeyboardSource()
+  }
+
+  if (stopBatteryService) {
+    stopBatteryService()
   }
 
   if (process.platform !== 'darwin') {
