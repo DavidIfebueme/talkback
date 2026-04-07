@@ -34,7 +34,6 @@ release flow used by this repo:
    - `ELEVENLABS_VOICE_ID`
    - `ELEVENLABS_MODEL_ID`
 
-`.env` is gitignored.
 
 ## where each provider is used
 
