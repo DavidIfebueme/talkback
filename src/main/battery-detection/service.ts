@@ -81,7 +81,14 @@ export class BatteryPersonalityService {
   }
 
   async pollOnce(now = Date.now()): Promise<BatteryThresholdEvent[]> {
-    const snapshot = await this.provider.read()
+    let snapshot: BatterySnapshot
+
+    try {
+      snapshot = await this.provider.read()
+    } catch {
+      return []
+    }
+
     const events = this.tracker.process(snapshot, now)
 
     for (const event of events) {

@@ -46,15 +46,18 @@ export class PersonalityEngine {
     allowAiVariation = true
   ): Promise<PersonalitySelection> {
     if (allowAiVariation && this.canUseAi(event.eventType) && this.config.aiLineGenerator) {
-      const generated = await this.config.aiLineGenerator({ eventType: event.eventType, context: event })
-      const sanitized = this.sanitizeToOneSentence(generated)
+      try {
+        const generated = await this.config.aiLineGenerator({ eventType: event.eventType, context: event })
+        const sanitized = this.sanitizeToOneSentence(generated)
 
-      if (sanitized.length > 0) {
-        return {
-          eventType: event.eventType,
-          text: sanitized,
-          source: 'ai'
+        if (sanitized.length > 0) {
+          return {
+            eventType: event.eventType,
+            text: sanitized,
+            source: 'ai'
+          }
         }
+      } catch {
       }
     }
 

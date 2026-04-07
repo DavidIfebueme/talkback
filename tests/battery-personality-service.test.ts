@@ -106,4 +106,39 @@ describe('BatteryPersonalityService', () => {
 
     expect(popupMessages.at(-1)).toBe('Battery at 5%.')
   })
+
+  it('returns no events when provider read fails', async () => {
+    const provider: BatteryProvider = {
+      async read() {
+        throw new Error('battery unavailable')
+      }
+    }
+
+    const triggerEngine = new TriggerEngine()
+    const personality = new PersonalityEngine()
+    const popup = new TextPopupChannel(() => {})
+    const playback = new AudioPlaybackManager(async () => {})
+    const metrics = new CacheMetrics()
+    const audioCache = new AudioCache('/tmp/talkback-battery-test-cache-fail', metrics)
+    const ttsProvider = new MemoryTtsProvider()
+    const ttsWorker = new TtsGenerationWorker(audioCache, ttsProvider, metrics)
+    const textCache = new TextCache('/tmp/talkback-battery-text-cache-fail/index.json', metrics)
+    const prefetchQueue = new PrefetchQueue(async (request) => {
+      await ttsWorker.prefetch(request)
+    })
+    const output = new OutputEngine(popup, playback, ttsWorker)
+
+    const service = new BatteryPersonalityService(
+      provider,
+      triggerEngine,
+      personality,
+      output,
+      ttsWorker,
+      textCache,
+      prefetchQueue
+    )
+
+    const events = await service.pollOnce(1000)
+    expect(events).toEqual([])
+  })
 })

@@ -99,4 +99,23 @@ describe('PersonalityEngine', () => {
     expect(selection.source).toBe('prewritten')
     expect(selection.text).toBe('i1')
   })
+
+  it('falls back to prewritten response when ai generator fails', async () => {
+    const engine = new PersonalityEngine({
+      aiLineGenerator: async () => {
+        throw new Error('ai down')
+      },
+      prewrittenResponses: {
+        knock: ['k1'],
+        keyboard_state_change: ['kb1'],
+        battery_threshold: ['b1'],
+        idle: ['i1']
+      }
+    })
+
+    const selection = await engine.select(baseEvent('battery_threshold'))
+
+    expect(selection.source).toBe('prewritten')
+    expect(selection.text).toBe('b1')
+  })
 })

@@ -14,10 +14,12 @@ import { OutputEngine } from './output-engine/output-engine'
 import { AudioPlaybackManager } from './output-engine/playback-manager'
 import { PrefetchQueue } from './output-engine/prefetch-queue'
 import { TextPopupChannel } from './output-engine/popup-channel'
+import { ResilientTtsProvider } from './output-engine/resilient-tts-provider'
 import { TextCache } from './output-engine/text-cache'
 import { TtsGenerationWorker } from './output-engine/tts-worker'
 import type { AudioPlaybackTask, TtsGenerationRequest, TtsProvider } from './output-engine/types'
 import { PersonalityEngine } from './personality-engine/engine'
+import { createResilientAiLineGenerator } from './personality-engine/resilient-ai-generator'
 import { StartupGreetingService } from './startup-personality/service'
 import { TriggerEngine } from './trigger-engine/engine'
 
@@ -75,14 +77,21 @@ const createWindow = (): void => {
   })
   const textCache = new TextCache(join(app.getPath('userData'), 'text-cache.json'), cacheMetrics)
 
-  const provider: TtsProvider = {
+  const baseTtsProvider: TtsProvider = {
     async synthesize(request: TtsGenerationRequest): Promise<Buffer> {
       await mkdir(cacheDir, { recursive: true })
       return Buffer.from(request.text, 'utf8')
     }
   }
 
-  const ttsWorker = new TtsGenerationWorker(audioCache, provider, cacheMetrics)
+  const resilientTtsProvider = new ResilientTtsProvider(baseTtsProvider, {
+    timeoutMs: 3000,
+    maxRetries: 2,
+    failureThreshold: 4,
+    circuitOpenMs: 15000
+  })
+
+  const ttsWorker = new TtsGenerationWorker(audioCache, resilientTtsProvider, cacheMetrics)
   const prefetchQueue = new PrefetchQueue(async (request) => {
     await ttsWorker.prefetch(request)
   })
@@ -90,7 +99,20 @@ const createWindow = (): void => {
   outputEngine = new OutputEngine(popupChannel, playbackManager, ttsWorker)
 
   const triggerEngine = new TriggerEngine()
-  const personalityEngine = new PersonalityEngine()
+  const personalityEngine = new PersonalityEngine({
+    aiLineGenerator: createResilientAiLineGenerator(
+      async ({ eventType, context }) => {
+        const payload = JSON.stringify(context.payload)
+        return `${eventType} detected: ${payload}.`
+      },
+      {
+        timeoutMs: 2000,
+        maxRetries: 1,
+        failureThreshold: 4,
+        circuitOpenMs: 10000
+      }
+    )
+  })
   const startupGreeting = new StartupGreetingService(outputEngine)
   const keyboardBridge = new KeyboardMoodTriggerBridge(triggerEngine)
   const keyboardMode = resolveKeyboardSourceMode(process.platform, process.env.XDG_SESSION_TYPE)
@@ -183,9 +205,16 @@ const createWindow = (): void => {
     })
 
     if (!started) {
-      await fallbackSource.start((timestamp) => {
+      const fallbackStarted = await fallbackSource.start((timestamp) => {
         keyboardBridge.getDetector().ingestKeydown(timestamp)
       })
+
+      if (!fallbackStarted) {
+        popupChannel.show('Keyboard hooks unavailable on this session.')
+        stopKeyboardSource = undefined
+        return
+      }
+
       stopKeyboardSource = async () => {
         await fallbackSource.stop()
       }
