@@ -1,0 +1,80 @@
+name: release-build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            package_script: package:linux
+            artifact_name: talkback-linux
+            artifact_path: release/*.AppImage
+          - os: windows-latest
+            package_script: package:win
+            artifact_name: talkback-windows
+            artifact_path: release/*.exe
+          - os: macos-latest
+            package_script: package:mac
+            artifact_name: talkback-macos
+            artifact_path: release/*.dmg
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: npm ci
+        env:
+          PYTHON: python
+
+      - run: npm run rebuild:native
+        env:
+          PYTHON: python
+
+      - run: npm run lint
+
+      - run: npm run test
+
+      - run: npm run ${{ matrix.package_script }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/talkback-linux/*.AppImage
+            artifacts/talkback-windows/*.exe
+            artifacts/talkback-macos/*.dmg
