@@ -1,4 +1,6 @@
 import type { OutputEngine } from '../output-engine/output-engine'
+import { PrefetchQueue } from '../output-engine/prefetch-queue'
+import { TextCache } from '../output-engine/text-cache'
 import type { TtsGenerationWorker } from '../output-engine/tts-worker'
 import type { PersonalityEngine } from '../personality-engine/engine'
 import type { TriggerEngine } from '../trigger-engine/engine'
@@ -32,6 +34,8 @@ export class BatteryPersonalityService {
   private readonly personalityEngine: PersonalityEngine
   private readonly outputEngine: OutputEngine
   private readonly ttsWorker: TtsGenerationWorker
+  private readonly textCache: TextCache
+  private readonly prefetchQueue: PrefetchQueue
   private readonly config: BatteryPersonalityConfig
   private readonly tracker: BatteryThresholdTracker
   private readonly pregenCache = new Map<number, PregenCacheValue>()
@@ -43,6 +47,8 @@ export class BatteryPersonalityService {
     personalityEngine: PersonalityEngine,
     outputEngine: OutputEngine,
     ttsWorker: TtsGenerationWorker,
+    textCache: TextCache,
+    prefetchQueue: PrefetchQueue,
     config?: Partial<BatteryPersonalityConfig>
   ) {
     this.provider = provider
@@ -50,6 +56,8 @@ export class BatteryPersonalityService {
     this.personalityEngine = personalityEngine
     this.outputEngine = outputEngine
     this.ttsWorker = ttsWorker
+    this.textCache = textCache
+    this.prefetchQueue = prefetchQueue
     this.config = {
       ...defaultConfig,
       ...(config ?? {})
@@ -140,15 +148,30 @@ export class BatteryPersonalityService {
       }
     }
 
-    const selected = await this.personalityEngine.select(targetEvent, 'deterministic', true)
+    const contextHash = this.textCache.contextHash(
+      JSON.stringify({
+        threshold: this.config.pregenTargetThreshold,
+        percent: (targetEvent.payload as { percent: number }).percent
+      })
+    )
+    const cacheKey = this.textCache.key('zai', 'battery_threshold', contextHash)
+    const cachedText = await this.textCache.get(cacheKey, timestamp)
+
+    const selectedText =
+      cachedText ?? (await this.personalityEngine.select(targetEvent, 'deterministic', true)).text
+
+    if (!cachedText) {
+      await this.textCache.set(cacheKey, selectedText, 24 * 60 * 60 * 1000, timestamp)
+    }
+
     this.pregenCache.set(this.config.pregenTargetThreshold, {
-      text: selected.text,
+      text: selectedText,
       threshold: this.config.pregenTargetThreshold,
       createdAt: timestamp
     })
 
-    this.ttsWorker.schedule({
-      text: selected.text,
+    this.prefetchQueue.enqueue({
+      text: selectedText,
       voiceId: this.config.voiceId,
       modelId: this.config.modelId
     })

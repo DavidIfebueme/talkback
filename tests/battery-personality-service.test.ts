@@ -4,8 +4,11 @@ import { BatteryPersonalityService } from '../src/main/battery-detection/service
 import type { BatteryProvider } from '../src/main/battery-detection/types'
 import { OutputEngine } from '../src/main/output-engine/output-engine'
 import { AudioCache } from '../src/main/output-engine/audio-cache'
+import { CacheMetrics } from '../src/main/output-engine/cache-metrics'
 import { AudioPlaybackManager } from '../src/main/output-engine/playback-manager'
+import { PrefetchQueue } from '../src/main/output-engine/prefetch-queue'
 import { TextPopupChannel } from '../src/main/output-engine/popup-channel'
+import { TextCache } from '../src/main/output-engine/text-cache'
 import { TtsGenerationWorker } from '../src/main/output-engine/tts-worker'
 import type { TtsGenerationRequest, TtsProvider } from '../src/main/output-engine/types'
 import { PersonalityEngine } from '../src/main/personality-engine/engine'
@@ -67,16 +70,31 @@ describe('BatteryPersonalityService', () => {
 
     const playback = new AudioPlaybackManager(async () => {})
     const ttsProvider = new MemoryTtsProvider()
-    const ttsWorker = new TtsGenerationWorker(new AudioCache('/tmp/talkback-battery-test-cache'), ttsProvider)
+    const metrics = new CacheMetrics()
+    const audioCache = new AudioCache('/tmp/talkback-battery-test-cache', metrics)
+    const ttsWorker = new TtsGenerationWorker(audioCache, ttsProvider, metrics)
+    const textCache = new TextCache('/tmp/talkback-battery-text-cache/index.json', metrics)
+    const prefetchQueue = new PrefetchQueue(async (request) => {
+      await ttsWorker.prefetch(request)
+    })
     const output = new OutputEngine(popup, playback, ttsWorker)
 
-    const service = new BatteryPersonalityService(provider, triggerEngine, personality, output, ttsWorker, {
-      thresholds: [20, 10, 5],
-      pregenSourceThreshold: 10,
-      pregenTargetThreshold: 5,
-      voiceId: 'voice',
-      modelId: 'model'
-    })
+    const service = new BatteryPersonalityService(
+      provider,
+      triggerEngine,
+      personality,
+      output,
+      ttsWorker,
+      textCache,
+      prefetchQueue,
+      {
+        thresholds: [20, 10, 5],
+        pregenSourceThreshold: 10,
+        pregenTargetThreshold: 5,
+        voiceId: 'voice',
+        modelId: 'model'
+      }
+    )
 
     await service.pollOnce(1000)
     await service.pollOnce(2000)

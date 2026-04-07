@@ -5,6 +5,7 @@ import { AudioPlaybackManager } from '../src/main/output-engine/playback-manager
 import { TextPopupChannel } from '../src/main/output-engine/popup-channel'
 import { TtsGenerationWorker } from '../src/main/output-engine/tts-worker'
 import { AudioCache } from '../src/main/output-engine/audio-cache'
+import { CacheMetrics } from '../src/main/output-engine/cache-metrics'
 import type { TtsGenerationRequest, TtsProvider } from '../src/main/output-engine/types'
 
 class FailingProvider implements TtsProvider {
@@ -24,8 +25,9 @@ describe('OutputEngine', () => {
     const shown: string[] = []
     const popup = new TextPopupChannel((message) => shown.push(message))
     const playback = new AudioPlaybackManager(async () => {})
-    const cache = new AudioCache('/tmp/talkback-test-audio-cache-1')
-    const worker = new TtsGenerationWorker(cache, new FailingProvider())
+    const metrics = new CacheMetrics()
+    const cache = new AudioCache('/tmp/talkback-test-audio-cache-1', metrics)
+    const worker = new TtsGenerationWorker(cache, new FailingProvider(), metrics)
     const engine = new OutputEngine(popup, playback, worker)
 
     const result = await engine.emit({
@@ -48,8 +50,9 @@ describe('OutputEngine', () => {
     const playback = new AudioPlaybackManager(async () => {
       throw new Error('playback failed')
     })
-    const cache = new AudioCache('/tmp/talkback-test-audio-cache-2')
-    const worker = new TtsGenerationWorker(cache, new SuccessProvider())
+    const metrics = new CacheMetrics()
+    const cache = new AudioCache('/tmp/talkback-test-audio-cache-2', metrics)
+    const worker = new TtsGenerationWorker(cache, new SuccessProvider(), metrics)
     const engine = new OutputEngine(popup, playback, worker)
 
     const result = await engine.emit({

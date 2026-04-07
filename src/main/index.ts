@@ -9,9 +9,12 @@ import { resolveKeyboardSourceMode } from './keyboard-detection/platform'
 import { UiohookKeyboardSource, FocusedWindowKeyboardSource } from './keyboard-detection/sources'
 import { KeyboardMoodTriggerBridge } from './keyboard-detection/trigger-bridge'
 import { AudioCache } from './output-engine/audio-cache'
+import { CacheMetrics } from './output-engine/cache-metrics'
 import { OutputEngine } from './output-engine/output-engine'
 import { AudioPlaybackManager } from './output-engine/playback-manager'
+import { PrefetchQueue } from './output-engine/prefetch-queue'
 import { TextPopupChannel } from './output-engine/popup-channel'
+import { TextCache } from './output-engine/text-cache'
 import { TtsGenerationWorker } from './output-engine/tts-worker'
 import type { AudioPlaybackTask, TtsGenerationRequest, TtsProvider } from './output-engine/types'
 import { PersonalityEngine } from './personality-engine/engine'
@@ -19,9 +22,11 @@ import { StartupGreetingService } from './startup-personality/service'
 import { TriggerEngine } from './trigger-engine/engine'
 
 let outputEngine: OutputEngine | undefined
+let cacheMetrics: CacheMetrics | undefined
 let stopKeyboardSource: (() => Promise<void>) | undefined
 let stopBatteryService: (() => void) | undefined
 let stopIdleService: (() => void) | undefined
+let stopTextCacheCleanup: (() => void) | undefined
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -64,7 +69,11 @@ const createWindow = (): void => {
   })
 
   const cacheDir = join(app.getPath('userData'), 'audio-cache')
-  const audioCache = new AudioCache(cacheDir)
+  cacheMetrics = new CacheMetrics()
+  const audioCache = new AudioCache(cacheDir, cacheMetrics, {
+    maxSizeBytes: 200 * 1024 * 1024
+  })
+  const textCache = new TextCache(join(app.getPath('userData'), 'text-cache.json'), cacheMetrics)
 
   const provider: TtsProvider = {
     async synthesize(request: TtsGenerationRequest): Promise<Buffer> {
@@ -73,7 +82,10 @@ const createWindow = (): void => {
     }
   }
 
-  const ttsWorker = new TtsGenerationWorker(audioCache, provider)
+  const ttsWorker = new TtsGenerationWorker(audioCache, provider, cacheMetrics)
+  const prefetchQueue = new PrefetchQueue(async (request) => {
+    await ttsWorker.prefetch(request)
+  })
 
   outputEngine = new OutputEngine(popupChannel, playbackManager, ttsWorker)
 
@@ -89,6 +101,8 @@ const createWindow = (): void => {
     personalityEngine,
     outputEngine,
     ttsWorker,
+    textCache,
+    prefetchQueue,
     {
       thresholds: [50, 20, 10, 5],
       pollIntervalMs: 30000,
@@ -102,6 +116,28 @@ const createWindow = (): void => {
   batteryService.start()
   stopBatteryService = () => {
     batteryService.stop()
+  }
+
+  const warmTexts = [
+    'Easy. I bruise emotionally.',
+    'You type like the deadline is armed.',
+    'Battery is dropping faster than your optimism.'
+  ]
+
+  for (const text of warmTexts) {
+    prefetchQueue.enqueue({
+      text,
+      voiceId: 'default-voice',
+      modelId: 'default-model'
+    })
+  }
+
+  const textCleanupInterval = setInterval(() => {
+    void textCache.cleanup()
+  }, 60000)
+
+  stopTextCacheCleanup = () => {
+    clearInterval(textCleanupInterval)
   }
 
   const idleService = new IdlePersonalityService(
@@ -165,6 +201,14 @@ const createWindow = (): void => {
 app.whenReady().then(() => {
   createWindow()
 
+  ipcMain.handle('talkback:cache-metrics', async () => {
+    if (!cacheMetrics) {
+      return null
+    }
+
+    return cacheMetrics.snapshot()
+  })
+
   ipcMain.handle('talkback:demo-output', async () => {
     if (!outputEngine) {
       return { textDisplayed: false, audioPlayed: false, fallbackReason: 'VOICE_GENERATION_FAILED' }
@@ -197,6 +241,10 @@ app.on('window-all-closed', () => {
 
   if (stopIdleService) {
     stopIdleService()
+  }
+
+  if (stopTextCacheCleanup) {
+    stopTextCacheCleanup()
   }
 
   if (process.platform !== 'darwin') {

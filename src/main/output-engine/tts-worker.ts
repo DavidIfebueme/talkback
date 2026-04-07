@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { AudioCache } from './audio-cache'
+import { CacheMetrics } from './cache-metrics'
 import type { TtsGenerationRequest, TtsGenerationResult, TtsProvider } from './types'
 
 interface Job {
@@ -11,12 +12,14 @@ interface Job {
 export class TtsGenerationWorker {
   private readonly cache: AudioCache
   private readonly provider: TtsProvider
+  private readonly metrics: CacheMetrics
   private readonly queue: Job[] = []
   private running = false
 
-  constructor(cache: AudioCache, provider: TtsProvider) {
+  constructor(cache: AudioCache, provider: TtsProvider, metrics: CacheMetrics) {
     this.cache = cache
     this.provider = provider
+    this.metrics = metrics
   }
 
   async enqueue(request: TtsGenerationRequest): Promise<TtsGenerationResult> {
@@ -39,6 +42,10 @@ export class TtsGenerationWorker {
     return id
   }
 
+  async prefetch(request: TtsGenerationRequest): Promise<void> {
+    await this.enqueue(request)
+  }
+
   private async run(): Promise<void> {
     if (this.running) {
       return
@@ -55,8 +62,10 @@ export class TtsGenerationWorker {
     try {
       const { request } = next
       const cacheKey = this.cache.key(request.voiceId, request.modelId, request.text)
+      const startedAt = Date.now()
       const bytes = await this.provider.synthesize(request)
       const path = await this.cache.store(cacheKey, bytes)
+      this.metrics.markGenerationLatency(Date.now() - startedAt)
       next.resolve({ status: 'ready', audioFilePath: path })
     } catch {
       next.resolve({ status: 'fallback_text_only' })
