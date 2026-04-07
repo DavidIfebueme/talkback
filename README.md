@@ -4,19 +4,17 @@ reactive laptop personality desktop app built with electron + typescript.
 
 ## download the app
 
-yes, this is supported.
-
-if you want installers instead of running locally, use github releases:
+prebuilt installers are distributed through github releases:
 - releases page: https://github.com/davidifebueme/talkback/releases
 - linux artifact: appimage
 - windows artifact: nsis `.exe`
 - mac artifact: `.dmg`
 
-important:
+notes:
 - installers only show up when a tagged release is pushed.
-- if there is no release tag yet, you will not see downloadable binaries yet.
+- if there is no release tag yet, no downloadable binaries are available.
 
-release flow used by this repo:
+release process:
 1. push code to `master`
 2. create and push a semver tag like `v0.1.0`
 3. github actions workflow at `.github/workflows/release-build.yml` builds and uploads artifacts
@@ -34,17 +32,6 @@ release flow used by this repo:
    - `ELEVENLABS_VOICE_ID`
    - `ELEVENLABS_MODEL_ID`
 
-
-## where each provider is used
-
-- z.ai inference: `src/main/personality-engine/zai-line-generator.ts`
-- z.ai wiring: `src/main/index.ts`
-- elevenlabs tts: `src/main/output-engine/elevenlabs-provider.ts`
-- elevenlabs wiring: `src/main/index.ts`
-
-fallback behavior:
-- no `ZAI_API_KEY` → app uses prewritten lines only
-- no `ELEVENLABS_API_KEY` → app keeps text output and skips real cloud tts
 
 ## run locally
 
