@@ -1,31 +1,53 @@
-# TalkBack
+# talkback
 
-Reactive laptop personality desktop app built with Electron and TypeScript.
+reactive laptop personality desktop app built with electron + typescript.
 
-## Environment setup
+## download the app
 
-1. Copy `.env.example` to `.env`.
-2. Fill provider keys:
+yes, this is supported.
+
+if you want installers instead of running locally, use github releases:
+- releases page: https://github.com/davidifebueme/talkback/releases
+- linux artifact: appimage
+- windows artifact: nsis `.exe`
+- mac artifact: `.dmg`
+
+important:
+- installers only show up when a tagged release is pushed.
+- if there is no release tag yet, you will not see downloadable binaries yet.
+
+release flow used by this repo:
+1. push code to `master`
+2. create and push a semver tag like `v0.1.0`
+3. github actions workflow at `.github/workflows/release-build.yml` builds and uploads artifacts
+
+## env setup
+
+1. copy `.env.example` to `.env`
+2. set these required keys for real provider calls:
    - `ZAI_API_KEY`
    - `ELEVENLABS_API_KEY`
-3. Optional tuning:
-   - `ZAI_MODEL`, `ZAI_BASE_URL`
-   - `ELEVENLABS_BASE_URL`, `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL_ID`
+3. optional tuning:
+   - `ZAI_MODEL`
+   - `ZAI_BASE_URL`
+   - `ELEVENLABS_BASE_URL`
+   - `ELEVENLABS_VOICE_ID`
+   - `ELEVENLABS_MODEL_ID`
 
 `.env` is gitignored.
 
-## Where providers are used
+## where each provider is used
 
-- Z.ai inference is used in `src/main/personality-engine/zai-line-generator.ts`.
-- Z.ai is wired from app startup in `src/main/index.ts` through `createResilientAiLineGenerator`.
-- ElevenLabs voice synthesis is used in `src/main/output-engine/elevenlabs-provider.ts`.
-- ElevenLabs is wired in `src/main/index.ts` as the `TtsProvider` for `TtsGenerationWorker`.
+- z.ai inference: `src/main/personality-engine/zai-line-generator.ts`
+- z.ai wiring: `src/main/index.ts`
+- elevenlabs tts: `src/main/output-engine/elevenlabs-provider.ts`
+- elevenlabs wiring: `src/main/index.ts`
 
-If a key is missing, TalkBack falls back gracefully:
-- No `ZAI_API_KEY`: prewritten lines only.
-- No `ELEVENLABS_API_KEY`: text-only/fallback audio bytes path.
+fallback behavior:
+- no `ZAI_API_KEY` → app uses prewritten lines only
+- no `ELEVENLABS_API_KEY` → app keeps text output and skips real cloud tts
 
-## Local development
+## run locally
 
 ```bash
 npm install
@@ -35,22 +57,23 @@ npm run build
 npm run dev
 ```
 
-## Cross-platform validation from Linux
-
-### Linux (local Arch laptop)
+## quick linux qa (arch laptop)
 
 ```bash
 npm run dev
 ```
 
-Manual checks:
-- Click `Run Demo Output` and `Run Demo Moment`.
-- Confirm popup text appears.
-- Confirm audio starts when `ELEVENLABS_API_KEY` is set.
-- Leave machine idle and check idle trigger lines.
-- Verify keyboard mood fallback behavior under Wayland/X11.
+manual checks:
+- click `run demo output`
+- click `run demo moment`
+- confirm popup text shows immediately
+- confirm audio plays when `ELEVENLABS_API_KEY` is set
+- leave system idle and confirm idle lines fire
+- verify keyboard mood behavior in your actual session type (wayland or x11)
 
-### Build artifacts for all platforms
+## cross-platform validation checklist
+
+build commands:
 
 ```bash
 npm run package:linux
@@ -58,24 +81,7 @@ npm run package:win
 npm run package:mac
 ```
 
-On Linux host, cross-target packaging can be environment-limited for Windows/macOS signing/runtime validation.
-
-Recommended release validation flow:
-1. Push to `master`.
-2. Create/push a semver tag (`vX.Y.Z`).
-3. Use GitHub Actions workflow `.github/workflows/release-build.yml` to build platform artifacts.
-4. Validate each artifact on real OS target machines.
-
-### Minimum practical platform matrix
-
-- Linux: Arch GNOME Wayland + X11 session
-- Windows: Windows 10/11 clean install
-- macOS: Recent Intel or Apple Silicon machine
-
-For each platform validate:
-- App launch
-- Demo output buttons
-- Popup rendering
-- Audio playback with ElevenLabs key
-- Battery/idle trigger behavior
-- App quit and relaunch
+test on real machines before calling it done:
+- linux: launch appimage, run demo buttons, test idle + battery + keyboard flow
+- windows 10/11: install `.exe`, verify launch, permissions, playback, restart
+- macos: open `.dmg`, verify launch, permissions, playback, restart

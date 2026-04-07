@@ -4,6 +4,7 @@ coverage/
 release/
 .env
 .env.*
+!.env.example
 *.md
 !README.md
 !readme.md
