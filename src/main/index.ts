@@ -1,15 +1,19 @@
+import 'dotenv/config'
+
 import { app, BrowserWindow, ipcMain, powerMonitor } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { SystemInformationBatteryProvider } from './battery-detection/provider'
 import { BatteryPersonalityService } from './battery-detection/service'
+import { loadAppEnvironment } from './config/env'
 import { IdlePersonalityService } from './idle-detection/service'
 import { resolveKeyboardSourceMode } from './keyboard-detection/platform'
 import { UiohookKeyboardSource, FocusedWindowKeyboardSource } from './keyboard-detection/sources'
 import { KeyboardMoodTriggerBridge } from './keyboard-detection/trigger-bridge'
 import { AudioCache } from './output-engine/audio-cache'
 import { CacheMetrics } from './output-engine/cache-metrics'
+import { ElevenLabsTtsProvider } from './output-engine/elevenlabs-provider'
 import { OutputEngine } from './output-engine/output-engine'
 import { AudioPlaybackManager } from './output-engine/playback-manager'
 import { PrefetchQueue } from './output-engine/prefetch-queue'
@@ -20,6 +24,7 @@ import { TtsGenerationWorker } from './output-engine/tts-worker'
 import type { AudioPlaybackTask, TtsGenerationRequest, TtsProvider } from './output-engine/types'
 import { PersonalityEngine } from './personality-engine/engine'
 import { createResilientAiLineGenerator } from './personality-engine/resilient-ai-generator'
+import { createZaiLineGenerator } from './personality-engine/zai-line-generator'
 import { StartupGreetingService } from './startup-personality/service'
 import { TriggerEngine } from './trigger-engine/engine'
 
@@ -38,6 +43,8 @@ const demoMomentLines = [
   'Idle alert simulation: silence this loud is suspicious.',
   'System banter ready. Give me chaos and I will narrate it.'
 ]
+
+const appEnvironment = loadAppEnvironment()
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -86,12 +93,19 @@ const createWindow = (): void => {
   })
   const textCache = new TextCache(join(app.getPath('userData'), 'text-cache.json'), cacheMetrics)
 
-  const baseTtsProvider: TtsProvider = {
+  const fallbackTtsProvider: TtsProvider = {
     async synthesize(request: TtsGenerationRequest): Promise<Buffer> {
       await mkdir(cacheDir, { recursive: true })
       return Buffer.from(request.text, 'utf8')
     }
   }
+
+  const baseTtsProvider: TtsProvider = appEnvironment.elevenLabsApiKey
+    ? new ElevenLabsTtsProvider({
+        apiKey: appEnvironment.elevenLabsApiKey,
+        baseUrl: appEnvironment.elevenLabsBaseUrl
+      })
+    : fallbackTtsProvider
 
   const resilientTtsProvider = new ResilientTtsProvider(baseTtsProvider, {
     timeoutMs: 3000,
@@ -108,21 +122,29 @@ const createWindow = (): void => {
   outputEngine = new OutputEngine(popupChannel, playbackManager, ttsWorker)
 
   const triggerEngine = new TriggerEngine()
+  const aiGenerator = appEnvironment.zaiApiKey
+    ? createResilientAiLineGenerator(
+        createZaiLineGenerator({
+          apiKey: appEnvironment.zaiApiKey,
+          model: appEnvironment.zaiModel,
+          baseUrl: appEnvironment.zaiBaseUrl
+        }),
+        {
+          timeoutMs: 2000,
+          maxRetries: 1,
+          failureThreshold: 4,
+          circuitOpenMs: 10000
+        }
+      )
+    : undefined
+
   const personalityEngine = new PersonalityEngine({
-    aiLineGenerator: createResilientAiLineGenerator(
-      async ({ eventType, context }) => {
-        const payload = JSON.stringify(context.payload)
-        return `${eventType} detected: ${payload}.`
-      },
-      {
-        timeoutMs: 2000,
-        maxRetries: 1,
-        failureThreshold: 4,
-        circuitOpenMs: 10000
-      }
-    )
+    aiLineGenerator: aiGenerator
   })
-  const startupGreeting = new StartupGreetingService(outputEngine)
+  const startupGreeting = new StartupGreetingService(outputEngine, {
+    voiceId: appEnvironment.elevenLabsDefaultVoiceId,
+    modelId: appEnvironment.elevenLabsDefaultModelId
+  })
   const keyboardBridge = new KeyboardMoodTriggerBridge(triggerEngine)
   const keyboardMode = resolveKeyboardSourceMode(process.platform, process.env.XDG_SESSION_TYPE)
   const batteryProvider = new SystemInformationBatteryProvider()
@@ -139,8 +161,8 @@ const createWindow = (): void => {
       pollIntervalMs: 30000,
       pregenSourceThreshold: 10,
       pregenTargetThreshold: 5,
-      voiceId: 'default-voice',
-      modelId: 'default-model'
+      voiceId: appEnvironment.elevenLabsDefaultVoiceId,
+      modelId: appEnvironment.elevenLabsDefaultModelId
     }
   )
 
@@ -180,8 +202,8 @@ const createWindow = (): void => {
       idleThresholdSec: 90,
       pollIntervalMs: 5000,
       cooldownMs: 60000,
-      voiceId: 'default-voice',
-      modelId: 'default-model'
+      voiceId: appEnvironment.elevenLabsDefaultVoiceId,
+      modelId: appEnvironment.elevenLabsDefaultModelId
     }
   )
 
@@ -256,8 +278,8 @@ app.whenReady().then(() => {
       eventType: 'knock',
       text: 'Easy. I bruise emotionally.',
       useVoice: true,
-      voiceId: 'default-voice',
-      modelId: 'default-model'
+      voiceId: appEnvironment.elevenLabsDefaultVoiceId,
+      modelId: appEnvironment.elevenLabsDefaultModelId
     })
   })
 
@@ -273,8 +295,8 @@ app.whenReady().then(() => {
       eventType: 'idle',
       text: line,
       useVoice: true,
-      voiceId: 'default-voice',
-      modelId: 'default-model'
+      voiceId: appEnvironment.elevenLabsDefaultVoiceId,
+      modelId: appEnvironment.elevenLabsDefaultModelId
     })
   })
 
