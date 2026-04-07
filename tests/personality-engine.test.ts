@@ -45,6 +45,44 @@ describe('PersonalityEngine', () => {
     expect(second.text).toBe('k2')
   })
 
+  it('clamps anti-repeat window to at least one', async () => {
+    const engine = new PersonalityEngine({
+      antiRepeatWindow: 0,
+      random: () => 0,
+      prewrittenResponses: {
+        knock: ['k1', 'k2'],
+        keyboard_state_change: ['kb1'],
+        battery_threshold: ['b1'],
+        idle: ['i1']
+      }
+    })
+
+    const first = await engine.select(baseEvent('knock', 1010))
+    const second = await engine.select(baseEvent('knock', 1011))
+
+    expect(first.text).toBe('k1')
+    expect(second.text).toBe('k2')
+  })
+
+  it('limits anti-repeat window to available line diversity', async () => {
+    const engine = new PersonalityEngine({
+      antiRepeatWindow: 10,
+      random: () => 0,
+      prewrittenResponses: {
+        knock: ['k1', 'k2'],
+        keyboard_state_change: ['kb1'],
+        battery_threshold: ['b1'],
+        idle: ['i1']
+      }
+    })
+
+    const first = await engine.select(baseEvent('knock', 1020))
+    const second = await engine.select(baseEvent('knock', 1021))
+
+    expect(first.text).toBe('k1')
+    expect(second.text).toBe('k2')
+  })
+
   it('uses deterministic strategy when requested', async () => {
     const engine = new PersonalityEngine({
       prewrittenResponses: {

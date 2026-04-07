@@ -2,23 +2,51 @@ import type { EventType, TriggerEvent } from '../trigger-engine/types'
 import type { PersonalityEngineConfig, PersonalitySelection, SelectionStrategy } from './types'
 
 const defaultPrewrittenResponses: Record<EventType, string[]> = {
-  knock: ['I felt that.', 'Was that your hand or your frustration?', 'Easy. I bruise emotionally.'],
+  knock: [
+    'I felt that.',
+    'Was that your hand or your frustration?',
+    'Easy. I bruise emotionally.',
+    'Knock received. Drama level acceptable.',
+    'That was either confidence or panic.',
+    'You knock like the laptop owes you rent.',
+    'I heard it. I am pretending to be calm.',
+    'Message delivered. Emotional damage pending.'
+  ],
   keyboard_state_change: [
     'You type like the deadline is armed.',
     'That keyboard did not consent to this speed.',
-    'Calm down, I can only process so much panic.'
+    'Calm down, I can only process so much panic.',
+    'Your keystrokes have entered aggressive mode.',
+    'This is either genius or a stress spiral.',
+    'You are typing in all caps emotionally.',
+    'Keyboard mood: caffeinated urgency detected.',
+    'I can feel the panic through the keycaps.'
   ],
   battery_threshold: [
     'Battery is dropping faster than your optimism.',
     'Power me or prepare for blackout theater.',
-    'I am not dying, I am making a statement.'
+    'I am not dying, I am making a statement.',
+    'Charge now or we both learn consequences.',
+    'Battery check: vibes low, voltage lower.',
+    'This is your gentle warning before chaos.',
+    'I am entering low-power sarcasm mode.',
+    'Plug in soon. I would like to survive this arc.'
   ],
-  idle: ['You there, or did you rage-quit life?', 'I miss your chaotic typing.', 'Wake up, I am bored.']
+  idle: [
+    'You there, or did you rage-quit life?',
+    'I miss your chaotic typing.',
+    'Wake up, I am bored.',
+    'Silence detected. Are we reflecting or buffering?',
+    'I support breaks. I also support dramatic returns.',
+    'System idle. Suspiciously peaceful.',
+    'You vanished. I assume snacks are involved.',
+    'Stillness is nice. Productivity is optional.'
+  ]
 }
 
 const defaultConfig: PersonalityEngineConfig = {
   prewrittenResponses: defaultPrewrittenResponses,
-  antiRepeatWindow: 2,
+  antiRepeatWindow: 4,
   aiAllowedEvents: ['battery_threshold', 'idle'],
   random: () => Math.random()
 }
@@ -35,6 +63,10 @@ export class PersonalityEngine {
         ...defaultConfig.prewrittenResponses,
         ...(config?.prewrittenResponses ?? {})
       },
+      antiRepeatWindow:
+        config?.antiRepeatWindow === undefined
+          ? defaultConfig.antiRepeatWindow
+          : Math.max(1, Math.floor(config.antiRepeatWindow)),
       aiAllowedEvents: config?.aiAllowedEvents ?? defaultConfig.aiAllowedEvents,
       random: config?.random ?? defaultConfig.random
     }
@@ -101,7 +133,8 @@ export class PersonalityEngine {
         : Math.floor(this.config.random() * available.length)
 
     const selected = available[index] ?? available[0]
-    const updatedHistory = [...recentHistory, selected].slice(-this.config.antiRepeatWindow)
+    const maxWindow = Math.max(1, Math.min(this.config.antiRepeatWindow, lines.length - 1 || 1))
+    const updatedHistory = [...recentHistory, selected].slice(-maxWindow)
     this.historyByType.set(event.eventType, updatedHistory)
 
     return selected

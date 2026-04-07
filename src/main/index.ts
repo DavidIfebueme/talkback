@@ -29,6 +29,15 @@ let stopKeyboardSource: (() => Promise<void>) | undefined
 let stopBatteryService: (() => void) | undefined
 let stopIdleService: (() => void) | undefined
 let stopTextCacheCleanup: (() => void) | undefined
+let demoMomentCursor = 0
+
+const demoMomentLines = [
+  'I felt that knock. Confidence level: theatrical.',
+  'Keyboard mood update: deadline thunderstorm approaching.',
+  'Battery warning simulation: power me before I start monologuing.',
+  'Idle alert simulation: silence this loud is suspicious.',
+  'System banter ready. Give me chaos and I will narrate it.'
+]
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -246,6 +255,23 @@ app.whenReady().then(() => {
     return outputEngine.emit({
       eventType: 'knock',
       text: 'Easy. I bruise emotionally.',
+      useVoice: true,
+      voiceId: 'default-voice',
+      modelId: 'default-model'
+    })
+  })
+
+  ipcMain.handle('talkback:demo-moment', async () => {
+    if (!outputEngine) {
+      return { textDisplayed: false, audioPlayed: false, fallbackReason: 'VOICE_GENERATION_FAILED' }
+    }
+
+    const line = demoMomentLines[demoMomentCursor % demoMomentLines.length] ?? 'Demo moment ready.'
+    demoMomentCursor += 1
+
+    return outputEngine.emit({
+      eventType: 'idle',
+      text: line,
       useVoice: true,
       voiceId: 'default-voice',
       modelId: 'default-model'

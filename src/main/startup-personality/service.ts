@@ -15,7 +15,13 @@ const defaultConfig: StartupGreetingConfig = {
   greetings: [
     'I booted before your motivation did.',
     'Good morning. Try not to stress-type me today.',
-    'I am awake and ready to judge your workflow.'
+    'I am awake and ready to judge your workflow.',
+    'Systems online. Standards remain unrealistic.',
+    'Welcome back. I kept the chaos warm for you.',
+    'Startup complete. Confidence loading slowly.',
+    'Ready when you are. Concerned either way.',
+    'All green on my side. How is your side?',
+    'Morning briefing: caffeine advised, panic optional.'
   ],
   voiceId: 'default-voice',
   modelId: 'default-model',

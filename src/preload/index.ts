@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('talkback', {
   version: '0.1.0',
   runDemoOutput: () => ipcRenderer.invoke('talkback:demo-output'),
+  runDemoMoment: () => ipcRenderer.invoke('talkback:demo-moment'),
   onPopup: (handler: (message: string) => void) => {
     const listener = (_event: unknown, message: string) => handler(message)
     ipcRenderer.on('talkback:popup', listener)
