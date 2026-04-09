@@ -16,7 +16,7 @@ export class MockZaiGenerator {
   }
 }
 
-export class MockElevenLabsProvider implements TtsProvider {
+export class MockTtsProvider implements TtsProvider {
   requests: TtsGenerationRequest[] = []
 
   async synthesize(request: TtsGenerationRequest): Promise<Buffer> {

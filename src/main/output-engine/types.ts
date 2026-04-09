@@ -17,6 +17,7 @@ export interface OutputResult {
   textDisplayed: boolean
   audioPlayed: boolean
   fallbackReason?: OutputFallbackReason
+  fallbackDetail?: string
 }
 
 export interface AudioPlaybackTask {
@@ -35,7 +36,7 @@ export interface TtsGenerationRequest {
 
 export type TtsGenerationResult =
   | { status: 'ready'; audioFilePath: string }
-  | { status: 'fallback_text_only' }
+  | { status: 'fallback_text_only'; reason?: string }
 
 export interface TtsProvider {
   synthesize(request: TtsGenerationRequest): Promise<Buffer>

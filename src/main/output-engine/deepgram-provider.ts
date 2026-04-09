@@ -4,42 +4,44 @@ interface FetchLike {
   (input: string, init?: RequestInit): Promise<Response>
 }
 
-export interface ElevenLabsProviderConfig {
+export interface DeepgramTtsProviderConfig {
   apiKey: string
   baseUrl: string
   fetchImpl?: FetchLike
 }
 
-export class ElevenLabsTtsProvider implements TtsProvider {
+export class DeepgramTtsProvider implements TtsProvider {
   private readonly apiKey: string
   private readonly baseUrl: string
   private readonly fetchImpl: FetchLike
 
-  constructor(config: ElevenLabsProviderConfig) {
+  constructor(config: DeepgramTtsProviderConfig) {
     this.apiKey = config.apiKey
     this.baseUrl = config.baseUrl.replace(/\/+$/, '')
     this.fetchImpl = config.fetchImpl ?? fetch
   }
 
   async synthesize(request: TtsGenerationRequest): Promise<Buffer> {
-    const endpoint = `${this.baseUrl}/text-to-speech/${encodeURIComponent(request.voiceId)}`
+    const model = encodeURIComponent(request.modelId)
+    const endpoint = `${this.baseUrl}/speak?model=${model}`
 
     const response = await this.fetchImpl(endpoint, {
       method: 'POST',
       headers: {
-        'xi-api-key': this.apiKey,
+        Authorization: `Token ${this.apiKey}`,
         'Content-Type': 'application/json',
         Accept: 'audio/mpeg'
       },
       body: JSON.stringify({
-        text: request.text,
-        model_id: request.modelId,
-        output_format: 'mp3_44100_128'
+        text: request.text
       })
     })
 
     if (!response.ok) {
-      throw new Error(`ELEVENLABS_REQUEST_FAILED_${response.status}`)
+      const failureBody = await response.text().catch(() => '')
+      const detail = failureBody.slice(0, 200)
+      const suffix = detail.length > 0 ? `:${detail}` : ''
+      throw new Error(`DEEPGRAM_REQUEST_FAILED_${response.status}${suffix}`)
     }
 
     const audioBytes = await response.arrayBuffer()

@@ -13,7 +13,7 @@ import { UiohookKeyboardSource, FocusedWindowKeyboardSource } from './keyboard-d
 import { KeyboardMoodTriggerBridge } from './keyboard-detection/trigger-bridge'
 import { AudioCache } from './output-engine/audio-cache'
 import { CacheMetrics } from './output-engine/cache-metrics'
-import { ElevenLabsTtsProvider } from './output-engine/elevenlabs-provider'
+import { DeepgramTtsProvider } from './output-engine/deepgram-provider'
 import { OutputEngine } from './output-engine/output-engine'
 import { AudioPlaybackManager } from './output-engine/playback-manager'
 import { PrefetchQueue } from './output-engine/prefetch-queue'
@@ -45,6 +45,10 @@ const demoMomentLines = [
 ]
 
 const appEnvironment = loadAppEnvironment()
+
+if (process.platform === 'linux') {
+  app.disableHardwareAcceleration()
+}
 
 const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
@@ -100,10 +104,10 @@ const createWindow = (): void => {
     }
   }
 
-  const baseTtsProvider: TtsProvider = appEnvironment.elevenLabsApiKey
-    ? new ElevenLabsTtsProvider({
-        apiKey: appEnvironment.elevenLabsApiKey,
-        baseUrl: appEnvironment.elevenLabsBaseUrl
+  const baseTtsProvider: TtsProvider = appEnvironment.deepgramApiKey
+    ? new DeepgramTtsProvider({
+        apiKey: appEnvironment.deepgramApiKey,
+        baseUrl: appEnvironment.deepgramBaseUrl
       })
     : fallbackTtsProvider
 
@@ -142,8 +146,8 @@ const createWindow = (): void => {
     aiLineGenerator: aiGenerator
   })
   const startupGreeting = new StartupGreetingService(outputEngine, {
-    voiceId: appEnvironment.elevenLabsDefaultVoiceId,
-    modelId: appEnvironment.elevenLabsDefaultModelId
+    voiceId: appEnvironment.deepgramDefaultVoiceId,
+    modelId: appEnvironment.deepgramDefaultModelId
   })
   const keyboardBridge = new KeyboardMoodTriggerBridge(triggerEngine)
   const keyboardMode = resolveKeyboardSourceMode(process.platform, process.env.XDG_SESSION_TYPE)
@@ -161,8 +165,8 @@ const createWindow = (): void => {
       pollIntervalMs: 30000,
       pregenSourceThreshold: 10,
       pregenTargetThreshold: 5,
-      voiceId: appEnvironment.elevenLabsDefaultVoiceId,
-      modelId: appEnvironment.elevenLabsDefaultModelId
+      voiceId: appEnvironment.deepgramDefaultVoiceId,
+      modelId: appEnvironment.deepgramDefaultModelId
     }
   )
 
@@ -202,8 +206,8 @@ const createWindow = (): void => {
       idleThresholdSec: 90,
       pollIntervalMs: 5000,
       cooldownMs: 60000,
-      voiceId: appEnvironment.elevenLabsDefaultVoiceId,
-      modelId: appEnvironment.elevenLabsDefaultModelId
+      voiceId: appEnvironment.deepgramDefaultVoiceId,
+      modelId: appEnvironment.deepgramDefaultModelId
     }
   )
 
@@ -278,8 +282,8 @@ app.whenReady().then(() => {
       eventType: 'knock',
       text: 'Easy. I bruise emotionally.',
       useVoice: true,
-      voiceId: appEnvironment.elevenLabsDefaultVoiceId,
-      modelId: appEnvironment.elevenLabsDefaultModelId
+      voiceId: appEnvironment.deepgramDefaultVoiceId,
+      modelId: appEnvironment.deepgramDefaultModelId
     })
   })
 
@@ -295,8 +299,8 @@ app.whenReady().then(() => {
       eventType: 'idle',
       text: line,
       useVoice: true,
-      voiceId: appEnvironment.elevenLabsDefaultVoiceId,
-      modelId: appEnvironment.elevenLabsDefaultModelId
+      voiceId: appEnvironment.deepgramDefaultVoiceId,
+      modelId: appEnvironment.deepgramDefaultModelId
     })
   })
 

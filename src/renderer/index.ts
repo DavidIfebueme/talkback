@@ -2,6 +2,7 @@ type DemoOutputResult = {
   textDisplayed: boolean
   audioPlayed: boolean
   fallbackReason?: string
+  fallbackDetail?: string
 }
 
 export {}
@@ -47,7 +48,8 @@ demoButton?.addEventListener('click', async () => {
   const result = await window.talkback.runDemoOutput()
 
   if (!result.audioPlayed && popup) {
-    popup.textContent = `${popup.textContent ?? ''} (${result.fallbackReason ?? 'TEXT_ONLY'})`
+    const detail = result.fallbackDetail ? `: ${result.fallbackDetail}` : ''
+    popup.textContent = `${popup.textContent ?? ''} (${result.fallbackReason ?? 'TEXT_ONLY'}${detail})`
   }
 })
 
@@ -55,6 +57,7 @@ momentButton?.addEventListener('click', async () => {
   const result = await window.talkback.runDemoMoment()
 
   if (!result.audioPlayed && popup) {
-    popup.textContent = `${popup.textContent ?? ''} (${result.fallbackReason ?? 'TEXT_ONLY'})`
+    const detail = result.fallbackDetail ? `: ${result.fallbackDetail}` : ''
+    popup.textContent = `${popup.textContent ?? ''} (${result.fallbackReason ?? 'TEXT_ONLY'}${detail})`
   }
 })

@@ -24,13 +24,13 @@ release process:
 1. copy `.env.example` to `.env`
 2. set these required keys for real provider calls:
    - `ZAI_API_KEY`
-   - `ELEVENLABS_API_KEY`
+   - `DEEPGRAM_API_KEY`
 3. optional tuning:
    - `ZAI_MODEL`
    - `ZAI_BASE_URL`
-   - `ELEVENLABS_BASE_URL`
-   - `ELEVENLABS_VOICE_ID`
-   - `ELEVENLABS_MODEL_ID`
+   - `DEEPGRAM_BASE_URL`
+   - `DEEPGRAM_TTS_MODEL`
+   - `DEEPGRAM_VOICE_ID`
 
 
 ## run locally
@@ -53,7 +53,7 @@ manual checks:
 - click `run demo output`
 - click `run demo moment`
 - confirm popup text shows immediately
-- confirm audio plays when `ELEVENLABS_API_KEY` is set
+- confirm audio plays when `DEEPGRAM_API_KEY` is set
 - leave system idle and confirm idle lines fire
 - verify keyboard mood behavior in your actual session type (wayland or x11)
 

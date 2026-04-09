@@ -2,10 +2,10 @@ export interface AppEnvironment {
   zaiApiKey?: string
   zaiModel: string
   zaiBaseUrl: string
-  elevenLabsApiKey?: string
-  elevenLabsBaseUrl: string
-  elevenLabsDefaultVoiceId: string
-  elevenLabsDefaultModelId: string
+  deepgramApiKey?: string
+  deepgramBaseUrl: string
+  deepgramDefaultVoiceId: string
+  deepgramDefaultModelId: string
 }
 
 const read = (name: string): string | undefined => {
@@ -24,9 +24,9 @@ export const loadAppEnvironment = (): AppEnvironment => {
     zaiApiKey: read('ZAI_API_KEY'),
     zaiModel: read('ZAI_MODEL') ?? 'glm-4.5-air',
     zaiBaseUrl: read('ZAI_BASE_URL') ?? 'https://api.z.ai/api/paas/v4',
-    elevenLabsApiKey: read('ELEVENLABS_API_KEY'),
-    elevenLabsBaseUrl: read('ELEVENLABS_BASE_URL') ?? 'https://api.elevenlabs.io/v1',
-    elevenLabsDefaultVoiceId: read('ELEVENLABS_VOICE_ID') ?? 'JBFqnCBsd6RMkjVDRZzb',
-    elevenLabsDefaultModelId: read('ELEVENLABS_MODEL_ID') ?? 'eleven_multilingual_v2'
+    deepgramApiKey: read('DEEPGRAM_API_KEY'),
+    deepgramBaseUrl: read('DEEPGRAM_BASE_URL') ?? 'https://api.deepgram.com/v1',
+    deepgramDefaultVoiceId: read('DEEPGRAM_VOICE_ID') ?? 'deepgram-aura',
+    deepgramDefaultModelId: read('DEEPGRAM_TTS_MODEL') ?? 'aura-2-helena-en'
   }
 }

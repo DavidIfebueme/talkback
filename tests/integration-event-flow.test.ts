@@ -11,7 +11,7 @@ import { TtsGenerationWorker } from '../src/main/output-engine/tts-worker'
 import { PersonalityEngine } from '../src/main/personality-engine/engine'
 import { TriggerEngine } from '../src/main/trigger-engine/engine'
 import type { TriggerEvent } from '../src/main/trigger-engine/types'
-import { MockElevenLabsProvider, MockZaiGenerator } from './mocks/providers'
+import { MockTtsProvider, MockZaiGenerator } from './mocks/providers'
 
 describe('Integration event flow', () => {
   it('flows battery event through trigger, personality AI path, and output audio', async () => {
@@ -32,9 +32,9 @@ describe('Integration event flow', () => {
     const personality = new PersonalityEngine({ aiLineGenerator: zai.generate })
 
     const metrics = new CacheMetrics()
-    const eleven = new MockElevenLabsProvider()
+    const ttsProvider = new MockTtsProvider()
     const audioCache = new AudioCache('/tmp/talkback-integration-cache-1', metrics)
-    const worker = new TtsGenerationWorker(audioCache, eleven, metrics)
+    const worker = new TtsGenerationWorker(audioCache, ttsProvider, metrics)
 
     const shown: string[] = []
     const output = new OutputEngine(
@@ -68,7 +68,7 @@ describe('Integration event flow', () => {
     expect(shown.length).toBe(1)
     expect(result.audioPlayed).toBe(true)
     expect(zai.calls.length).toBe(1)
-    expect(eleven.requests.length).toBe(1)
+    expect(ttsProvider.requests.length).toBe(1)
   })
 
   it('flows knock event through trigger, prewritten personality path, and output text/audio', async () => {
@@ -95,9 +95,9 @@ describe('Integration event flow', () => {
     })
 
     const metrics = new CacheMetrics()
-    const eleven = new MockElevenLabsProvider()
+    const ttsProvider = new MockTtsProvider()
     const audioCache = new AudioCache('/tmp/talkback-integration-cache-2', metrics)
-    const worker = new TtsGenerationWorker(audioCache, eleven, metrics)
+    const worker = new TtsGenerationWorker(audioCache, ttsProvider, metrics)
     const shown: string[] = []
     const output = new OutputEngine(
       new TextPopupChannel((message) => shown.push(message)),
@@ -122,6 +122,6 @@ describe('Integration event flow', () => {
     expect(selection.text).toBe('Knock acknowledged.')
     expect(shown).toEqual(['Knock acknowledged.'])
     expect(result.audioPlayed).toBe(true)
-    expect(eleven.requests.length).toBe(1)
+    expect(ttsProvider.requests.length).toBe(1)
   })
 })

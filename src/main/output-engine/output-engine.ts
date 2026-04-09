@@ -35,7 +35,8 @@ export class OutputEngine {
       return {
         textDisplayed: true,
         audioPlayed: false,
-        fallbackReason: 'VOICE_GENERATION_FAILED'
+        fallbackReason: 'VOICE_GENERATION_FAILED',
+        fallbackDetail: 'MISSING_VOICE_OR_MODEL'
       }
     }
 
@@ -49,7 +50,8 @@ export class OutputEngine {
       return {
         textDisplayed: true,
         audioPlayed: false,
-        fallbackReason: 'VOICE_GENERATION_FAILED'
+        fallbackReason: 'VOICE_GENERATION_FAILED',
+        fallbackDetail: generated.reason
       }
     }
 
@@ -68,7 +70,8 @@ export class OutputEngine {
       return {
         textDisplayed: true,
         audioPlayed: false,
-        fallbackReason: 'PLAYBACK_FAILED'
+        fallbackReason: 'PLAYBACK_FAILED',
+        fallbackDetail: 'AUDIO_PLAYBACK_EXCEPTION'
       }
     }
   }

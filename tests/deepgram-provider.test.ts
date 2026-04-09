@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { ElevenLabsTtsProvider } from '../src/main/output-engine/elevenlabs-provider'
+import { DeepgramTtsProvider } from '../src/main/output-engine/deepgram-provider'
 
-describe('ElevenLabsTtsProvider', () => {
+describe('DeepgramTtsProvider', () => {
   it('returns audio bytes for successful synthesis', async () => {
     const fetchImpl = vi.fn(async () => {
       return {
@@ -12,34 +12,35 @@ describe('ElevenLabsTtsProvider', () => {
       } as Response
     })
 
-    const provider = new ElevenLabsTtsProvider({
+    const provider = new DeepgramTtsProvider({
       apiKey: 'key',
-      baseUrl: 'https://api.elevenlabs.io/v1',
+      baseUrl: 'https://api.deepgram.com/v1',
       fetchImpl
     })
 
     const buffer = await provider.synthesize({
       text: 'hello',
       voiceId: 'voice-id',
-      modelId: 'model-id'
+      modelId: 'aura-2-helena-en'
     })
 
     expect(buffer.length).toBeGreaterThan(0)
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
-  it('throws when ElevenLabs request fails', async () => {
+  it('throws when Deepgram request fails', async () => {
     const fetchImpl = vi.fn(async () => {
       return {
         ok: false,
         status: 401,
+        text: async () => '{"err_msg":"invalid api key"}',
         arrayBuffer: async () => new ArrayBuffer(0)
       } as Response
     })
 
-    const provider = new ElevenLabsTtsProvider({
+    const provider = new DeepgramTtsProvider({
       apiKey: 'key',
-      baseUrl: 'https://api.elevenlabs.io/v1',
+      baseUrl: 'https://api.deepgram.com/v1',
       fetchImpl
     })
 
@@ -47,8 +48,8 @@ describe('ElevenLabsTtsProvider', () => {
       provider.synthesize({
         text: 'hello',
         voiceId: 'voice-id',
-        modelId: 'model-id'
+        modelId: 'aura-2-helena-en'
       })
-    ).rejects.toThrow('ELEVENLABS_REQUEST_FAILED_401')
+    ).rejects.toThrow('DEEPGRAM_REQUEST_FAILED_401')
   })
 })

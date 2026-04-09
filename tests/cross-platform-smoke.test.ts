@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { resolveKeyboardSourceMode } from '../src/main/keyboard-detection/platform'
-import { MockElevenLabsProvider, MockZaiGenerator } from './mocks/providers'
+import { MockTtsProvider, MockZaiGenerator } from './mocks/providers'
 
 describe('Cross-platform smoke', () => {
   it('resolves keyboard mode across linux/windows/macos sessions', () => {
@@ -19,7 +19,7 @@ describe('Cross-platform smoke', () => {
 
   it('provider mocks behave consistently for test usage', async () => {
     const zai = new MockZaiGenerator()
-    const eleven = new MockElevenLabsProvider()
+    const ttsProvider = new MockTtsProvider()
 
     const text = await zai.generate({
       eventType: 'battery_threshold',
@@ -30,7 +30,7 @@ describe('Cross-platform smoke', () => {
       }
     })
 
-    const bytes = await eleven.synthesize({ text, voiceId: 'voice', modelId: 'model' })
+    const bytes = await ttsProvider.synthesize({ text, voiceId: 'voice', modelId: 'model' })
 
     expect(text).toContain('Battery at 5%')
     expect(bytes.length).toBeGreaterThan(0)

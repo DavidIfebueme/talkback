@@ -67,8 +67,9 @@ export class TtsGenerationWorker {
       const path = await this.cache.store(cacheKey, bytes)
       this.metrics.markGenerationLatency(Date.now() - startedAt)
       next.resolve({ status: 'ready', audioFilePath: path })
-    } catch {
-      next.resolve({ status: 'fallback_text_only' })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'TTS_UNKNOWN_ERROR'
+      next.resolve({ status: 'fallback_text_only', reason })
     } finally {
       this.running = false
       void this.run()
